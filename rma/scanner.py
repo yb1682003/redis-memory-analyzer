@@ -45,6 +45,7 @@ class Scanner(object):
 
     def batch_scan(self, count=1000, batch_size=3000):
         ret = []
+        # count_1 = 1
         for key in self.redis.scan_iter(self.match, count=count):
             ret.append(key)
             if len(ret) == batch_size:
@@ -55,17 +56,19 @@ class Scanner(object):
 
     def resolve_types(self, ret):
         if not self.pipeline_mode:
-            try:
-                key_with_types = msgpack.unpackb(self.resolve_types_script(ret))
-            except ResponseError as e:
-                if "CROSSSLOT" not in repr(e):
-                    raise e
-                key_with_types = self.resolve_with_pipe(ret)
-                self.pipeline_mode = True
+            # try:
+            #     key_with_types = msgpack.unpackb(self.resolve_types_script(ret))
+            # except ResponseError as e:
+            #     repr_ex = repr(e)
+            #     if "CROSSSLOT" not in repr_ex:
+            #         raise e
+            key_with_types = self.resolve_with_pipe(ret)
+            self.pipeline_mode = True
         else:
             key_with_types = self.resolve_with_pipe(ret)
 
         for i in range(0, len(ret)):
+            print(ret[i],key_with_types[i])
             yield key_with_types[i], ret[i]
 
         ret.clear()
@@ -77,6 +80,7 @@ class Scanner(object):
             pipe.object('ENCODING', key)
             pipe.ttl(key)
         key_with_types = [{'type': x, 'encoding': y, 'ttl': z} for x, y, z in chunker(pipe.execute(), 3)]
+        
         return key_with_types
 
     def scan(self, limit=1000):
